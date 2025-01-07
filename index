@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Agent Workflow</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .workflow-container {
+            position: relative;
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .workflow-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .workflow-toggle {
+            background: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            color: #2c3e50;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .workflow-toggle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .workflow-toggle .toggle-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .workflow-toggle.active .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .flow-diagram {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .agent-step {
+            position: relative;
+            padding: 20px;
+            border: 2px solid #3498db;
+            border-radius: 12px;
+            background: #fff;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+        }
+
+        .agent-step.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .agent-step::after {
+            content: '→';
+            position: absolute;
+            right: -25px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #3498db;
+            z-index: 1;
+        }
+
+        .agent-step:last-child::after {
+            display: none;
+        }
+
+        .agent-header {
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .agent-content {
+            margin: 10px 0;
+            color: #34495e;
+        }
+
+        .agent-result {
+            margin-top: auto;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+        .agent-icon {
+            width: 40px;
+            height: 40px;
+            background: #3498db;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            display: none;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #reviewForm {
+            margin-bottom: 30px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        textarea:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+
+        button {
+            padding: 12px 25px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        #results {
+            margin-top: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        #results h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .status-completed {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-selected {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .status-processing {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .agent-input {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f1f8ff;
+            border-radius: 8px;
+            border-left: 4px solid #2980b9;
+        }
+
+        .agent-step.expanded .agent-input {
+            display: block;
+        }
+
+        .toggle-input {
+            background: #2980b9;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .toggle-input:hover {
+            background: #2471a3;
+        }
+
+        @media (max-width: 768px) {
+            .flow-diagram {
+                grid-template-columns: 1fr;
+            }
+
+            .agent-step::after {
+                content: '↓';
+                right: 50%;
+                bottom: -25px;
+                top: auto;
+                transform: translateX(50%);
+            }
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            backdrop-filter: blur(3px);
+        }
+
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1001;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #95a5a6;
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: #2c3e50;
+        }
+
+        .modal-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #3498db;
+        }
+
+        .modal-section h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+
+        .modal-section pre {
+            margin: 10px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.5;
+            border: 1px solid #e1e8ed;
+        }
+
+        .source-link {
+            display: inline-block;
+            margin-top: 15px;
+            color: #3498db;
+            text-decoration: none;
+            padding: 8px 15px;
+            background: #ebf5fb;
+            border-radius: 20px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .source-link:hover {
+            background: #d6eaf8;
+            text-decoration: none;
+        }
+
+        @media (max-width: 768px) {
+            .modal {
+                width: 95%;
+                padding: 20px;
+            }
+        }
+
+        /* Lägg till nya stilar för agent-översikten */
+        .agent-overview {
+            background: linear-gradient(135deg, #1a2a6c, #2a4858);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .triage-agent {
+            text-align: center;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .triage-agent:hover .triage-avatar {
+            animation: pulse 1s infinite;
+        }
+
+        .triage-avatar {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(45deg, #4a90e2, #63b3ed);
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            box-shadow: 0 0 30px rgba(74, 144, 226, 0.3);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .triage-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .triage-role {
+            font-size: 16px;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .agent-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+            padding: 0 20px;
+        }
+
+        .agent-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            transition: all 0.5s ease;
+            border: 2px solid transparent;
+            filter: grayscale(100%);
+            opacity: 0.7;
+            cursor: pointer;
+            transform-origin: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .agent-card.active {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #4a90e2;
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(74, 144, 226, 0.3);
+            filter: grayscale(0%);
+            opacity: 1;
+        }
+
+        .agent-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(45deg, #4a90e2, #63b3ed);
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 35px;
+            transition: transform 0.3s ease;
+        }
+
+        .agent-name {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: white;
+        }
+
+        .agent-role {
+            font-size: 14px;
+            line-height: 1.4;
+            opacity: 0.9;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Uppdatera befintliga stilar */
+        .agent-step.active {
+            opacity: 1;
+            transform: translateY(0);
+            border-color: #fdbb2d;
+            box-shadow: 0 0 20px rgba(253, 187, 45, 0.2);
+        }
+
+        /* Lägg till nya animationer och transitions */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes thinking {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+
+        /* Lägg till process-indicator */
+        .process-steps {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow-x: auto;
+        }
+
+        .process-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 20px;
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        .process-step.active {
+            opacity: 1;
+        }
+
+        .step-number {
+            width: 30px;
+            height: 30px;
+            background: #4a90e2;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .step-label {
+            font-size: 12px;
+            color: white;
+            text-align: center;
+        }
+
+        /* Uppdatera loading animation */
+        .loading {
+            display: none;
+            margin: 20px 0;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            animation: thinking 1.5s infinite;
+        }
+
+        .thinking-bubble {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .thinking-dot {
+            width: 8px;
+            height: 8px;
+            background: #4a90e2;
+            border-radius: 50%;
+            margin: 0 4px;
+            animation: thinking 1.5s infinite;
+        }
+
+        .thinking-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .thinking-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        /* Uppdatera workflow container */
+        .workflow-container {
+            position: relative;
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .workflow-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .workflow-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+
+        /* Lägg till hover-effekter på agent-korten */
+        .agent-card {
+            cursor: pointer;
+            transform-origin: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .agent-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .agent-card .agent-avatar {
+            transition: transform 0.3s ease;
+        }
+
+        .agent-card:hover .agent-avatar {
+            transform: scale(1.1);
+        }
+
+        /* Lägg till nya stilar för källinformation */
+        .agent-source {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .source-icon {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .source-url {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-family: monospace;
+        }
+
+        .source-url:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .agent-card.active .source-url {
+            background: rgba(74, 144, 226, 0.3);
+        }
+
+        #reviewForm {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+
+        .chat-header h2 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 20px;
+        }
+
+        .chat-icon {
+            font-size: 24px;
+        }
+
+        #reviewForm textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e3e8ee;
+            border-radius: 12px;
+            font-size: 16px;
+            resize: vertical;
+            min-height: 100px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        #reviewForm textarea:focus {
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+            outline: none;
+        }
+
+        #reviewForm button {
+            background: linear-gradient(45deg, #4a90e2, #63b3ed);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #reviewForm button::before {
+            content: '🚀';
+        }
+
+        #reviewForm button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="agent-overview">
+            <div class="triage-agent">
+                <div class="triage-avatar">🤖</div>
+                <div class="triage-name">TriageAgent</div>
+                <div class="triage-role">Hej! Jag är din AI-assistent som analyserar ditt ärende och kopplar in rätt expert för att hjälpa dig. Berätta vad du behöver hjälp med!</div>
+            </div>
+
+            <form id="reviewForm">
+                <div class="chat-header">
+                    <span class="chat-icon">💬</span>
+                    <h2>Beskriv ditt ärende</h2>
+                </div>
+                <textarea name="review" rows="4" placeholder="Beskriv ditt ärende här... Till exempel: 'Jag vill returnera min slips' eller 'När kommer min beställning?'"></textarea>
+                <button type="submit">Skicka till TriageAgent</button>
+            </form>
+
+            <div class="loading">
+                <div class="thinking-bubble">
+                    <div class="thinking-dot"></div>
+                    <div class="thinking-dot"></div>
+                    <div class="thinking-dot"></div>
+                </div>
+                <p>AI-agenterna arbetar med ditt ärende...</p>
+            </div>
+
+            <div class="agent-cards">
+                <!-- Agent-kort läggs till här dynamiskt -->
+            </div>
+        </div>
+
+        <style>
+            /* Uppdatera reviewForm styling för att passa i agent-overview */
+            #reviewForm {
+                background: rgba(255, 255, 255, 0.1);
+                padding: 25px;
+                border-radius: 15px;
+                margin: 20px 0;
+                backdrop-filter: blur(10px);
+            }
+
+            .chat-header {
+                display: flex;
+                align-items: center;
+                margin-bottom: 15px;
+                gap: 10px;
+            }
+
+            .chat-header h2 {
+                margin: 0;
+                color: white;
+                font-size: 20px;
+            }
+
+            .chat-icon {
+                font-size: 24px;
+            }
+
+            #reviewForm textarea {
+                width: 100%;
+                padding: 15px;
+                border: 2px solid rgba(255, 255, 255, 0.2);
+                border-radius: 12px;
+                font-size: 16px;
+                resize: vertical;
+                min-height: 100px;
+                margin-bottom: 15px;
+                transition: all 0.3s ease;
+                background: rgba(255, 255, 255, 0.05);
+                color: white;
+            }
+
+            #reviewForm textarea::placeholder {
+                color: rgba(255, 255, 255, 0.6);
+            }
+
+            #reviewForm textarea:focus {
+                border-color: #4a90e2;
+                box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+                outline: none;
+                background: rgba(255, 255, 255, 0.1);
+            }
+
+            #reviewForm button {
+                background: linear-gradient(45deg, #4a90e2, #63b3ed);
+                color: white;
+                border: none;
+                padding: 12px 25px;
+                border-radius: 8px;
+                font-size: 16px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-left: auto;
+            }
+
+            #reviewForm button::before {
+                content: '🚀';
+            }
+
+            #reviewForm button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+            }
+
+            /* Uppdatera loading styling för att passa i agent-overview */
+            .loading {
+                margin: 20px 0;
+                text-align: center;
+                background: rgba(255, 255, 255, 0.1);
+                padding: 20px;
+                border-radius: 15px;
+                color: white;
+            }
+        </style>
+
+        <button class="workflow-toggle" onclick="toggleWorkflow()">
+            <span class="toggle-icon">▼</span>
+            Visa arbetsflöde
+        </button>
+
+        <div class="workflow-container">
+            <div class="workflow-header">
+                <span class="workflow-icon">📋</span>
+                <h2>Agenternas Arbetsflöde</h2>
+            </div>
+            <div class="flow-diagram" id="flowDiagram"></div>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <!-- Modal overlay and content -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Detaljerad Information</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-content" id="modalContent">
+                <!-- Content will be dynamically inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getStatusBadgeClass(status) {
+            switch(status.toLowerCase()) {
+                case 'completed':
+                    return 'status-completed';
+                case 'selected':
+                    return 'status-selected';
+                default:
+                    return 'status-processing';
+            }
+        }
+
+        function getAgentIcon(agentName) {
+            return agentName.charAt(0).toUpperCase();
+        }
+
+        function toggleAgentInput(element) {
+            element.classList.toggle('expanded');
+        }
+
+        function formatContent(content) {
+            if (typeof content === 'string') {
+                try {
+                    return JSON.stringify(JSON.parse(content), null, 2);
+                } catch {
+                    return content;
+                }
+            }
+            return JSON.stringify(content, null, 2);
+        }
+
+        function createAgentStep(agentData) {
+            const step = document.createElement('div');
+            step.className = 'agent-step';
+            
+            // Skapa en data-attribut som innehåller agent-datan
+            const safeAgentData = JSON.stringify(agentData).replace(/"/g, '&quot;');
+            
+            // Välj emoji baserat på agent-typ
+            let emoji = '🤖'; // Default
+            if (agentData.agent.toLowerCase().includes('review')) emoji = '⭐';
+            else if (agentData.agent.toLowerCase().includes('shipping')) emoji = '📦';
+            else if (agentData.agent.toLowerCase().includes('return')) emoji = '↩️';
+            else if (agentData.agent.toLowerCase().includes('triage')) emoji = '🎯';
+            else if (agentData.agent.toLowerCase().includes('info')) emoji = '📋';
+            
+            step.innerHTML = `
+                <div class="agent-icon">${emoji}</div>
+                <div class="agent-header">
+                    ${agentData.agent}
+                    <span class="status-badge ${getStatusBadgeClass(agentData.status)}">${agentData.status}</span>
+                </div>
+                <div class="agent-content">${agentData.time}</div>
+                <div class="agent-result">${agentData.result}</div>
+                <button class="toggle-input" data-agent='${safeAgentData}' onclick="event.stopPropagation(); showModalFromButton(this)">
+                    Visa detaljer
+                </button>
+            `;
+            return step;
+        }
+
+        function showModalFromButton(button) {
+            const agentData = JSON.parse(button.getAttribute('data-agent'));
+            showModal(agentData);
+        }
+
+        function showModal(agentData) {
+            const modalContent = document.getElementById('modalContent');
+            let contentHtml = '';
+
+            // Agent Information
+            contentHtml += `
+                <div class="modal-section">
+                    <h3>Agent: ${agentData.agent}</h3>
+                    <p>Status: <span class="status-badge ${getStatusBadgeClass(agentData.status)}">${agentData.status}</span></p>
+                    <p>Tid: ${agentData.time}</p>
+                </div>`;
+
+            // Input Section
+            if (agentData.input) {
+                contentHtml += `
+                    <div class="modal-section">
+                        <h3>Input Data</h3>
+                        <pre>${formatContent(agentData.input)}</pre>
+                    </div>`;
+            }
+
+            // Output Section
+            if (agentData.output) {
+                contentHtml += `
+                    <div class="modal-section">
+                        <h3>Output Data</h3>
+                        <pre>${formatContent(agentData.output)}</pre>
+                    </div>`;
+            }
+
+            // Source Link
+            if (agentData.source) {
+                contentHtml += `
+                    <div class="modal-section">
+                        <h3>Källa</h3>
+                        <a href="${agentData.source}" target="_blank" class="source-link">
+                            <i class="fas fa-external-link-alt"></i> Besök källan
+                        </a>
+                    </div>`;
+            }
+
+            modalContent.innerHTML = contentHtml;
+            document.getElementById('modalOverlay').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('modalOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Funktion för att hämta tillgängliga agenter från backend
+        async function fetchAvailableAgents() {
+            try {
+                const response = await fetch('/get_available_agents');
+                const data = await response.json();
+                console.log('Hämtade agenter från backend:', data);
+                return data;
+            } catch (error) {
+                console.error('Kunde inte hämta agenter:', error);
+                // Fallback till att läsa från workflow_log om API-anropet misslyckas
+                return null;
+            }
+        }
+
+        // Funktion för att skapa ett agent-kort
+        function createAgentCard(agent) {
+            const card = document.createElement('div');
+            card.className = 'agent-card';
+            card.id = agent.id;
+            
+            // Välj emoji baserat på agent-typ
+            let emoji = '🤖'; // Default
+            if (agent.name.toLowerCase().includes('review')) emoji = '⭐';
+            else if (agent.name.toLowerCase().includes('shipping')) emoji = '📦';
+            else if (agent.name.toLowerCase().includes('return')) emoji = '↩️';
+            
+            // Bestäm källinformation baserat på agent-typ
+            let sourceInfo = '';
+            if (agent.name.toLowerCase().includes('shipping')) {
+                sourceInfo = `
+                    <div class="agent-source">
+                        <div class="source-icon">🔗</div>
+                        <a href="https://www.scottsberry.com/sv/delivery" target="_blank" class="source-url">
+                            scottsberry.com/sv/delivery
+                        </a>
+                    </div>`;
+            } else if (agent.name.toLowerCase().includes('return')) {
+                sourceInfo = `
+                    <div class="agent-source">
+                        <div class="source-icon">🔗</div>
+                        <a href="https://www.scottsberry.com/sv/returns" target="_blank" class="source-url">
+                            scottsberry.com/sv/returns
+                        </a>
+                    </div>`;
+            }
+            
+            card.innerHTML = `
+                <div class="agent-avatar">${emoji}</div>
+                <div class="agent-name">${agent.name}</div>
+                <div class="agent-role">${agent.description || agent.role || 'Specialistagent'}</div>
+                ${sourceInfo}
+            `;
+            return card;
+        }
+
+        // Funktion för att uppdatera agent-korten
+        async function updateAgentCards(workflowLog = null) {
+            const agentCardsContainer = document.querySelector('.agent-cards');
+            agentCardsContainer.innerHTML = ''; // Rensa befintliga kort
+            
+            // Försök hämta agenter från backend först
+            const agentsData = await fetchAvailableAgents();
+            
+            if (agentsData && agentsData.agents) {
+                // Använd agenter från backend
+                agentsData.agents.forEach(agent => {
+                    const card = createAgentCard(agent);
+                    agentCardsContainer.appendChild(card);
+                });
+            } else if (workflowLog) {
+                // Fallback: Skapa kort från workflow_log
+                const uniqueAgents = new Set();
+                workflowLog.forEach(log => {
+                    if (!log.agent.includes('Triage') && !log.agent.includes('Info Collector')) {
+                        uniqueAgents.add(log.agent);
+                    }
+                });
+                
+                uniqueAgents.forEach(agentName => {
+                    const agent = {
+                        id: agentName.toLowerCase().replace(/\s+/g, '-'),
+                        name: agentName,
+                        role: `Specialist på ${agentName.toLowerCase().split(' ')[0]}`
+                    };
+                    const card = createAgentCard(agent);
+                    agentCardsContainer.appendChild(card);
+                });
+            }
+        }
+
+        // Initiera sidan
+        window.addEventListener('load', () => {
+            updateAgentCards();
+        });
+
+        // Uppdatera resten av koden för att använda de dynamiska agent-korten
+        function updateActiveAgent(category) {
+            console.log('Aktiverar agent för kategori:', category);
+            
+            // Inaktivera alla agenter först
+            document.querySelectorAll('.agent-card').forEach(card => {
+                card.classList.remove('active');
+                card.style.opacity = '0.7';
+                card.style.filter = 'grayscale(100%)';
+            });
+            
+            // Hitta rätt agent baserat på kategori
+            let activeCard = null;
+            const cards = document.querySelectorAll('.agent-card');
+            cards.forEach(card => {
+                const cardName = card.querySelector('.agent-name').textContent.toLowerCase();
+                if ((category === 'PRODUCT_REVIEW' && cardName.includes('review')) ||
+                    (category === 'SHIPPING_ISSUE' && cardName.includes('shipping')) ||
+                    (category === 'RETURN_REQUEST' && cardName.includes('return'))) {
+                    activeCard = card;
+                }
+            });
+            
+            if (activeCard) {
+                console.log('Aktiverar kort:', activeCard.id);
+                activeCard.classList.add('active');
+                activeCard.style.opacity = '1';
+                activeCard.style.filter = 'grayscale(0%)';
+            }
+        }
+
+        // Uppdatera form submit för att hantera dynamiska agenter
+        document.getElementById('reviewForm').onsubmit = async function(e) {
+            e.preventDefault();
+            
+            document.querySelector('.loading').style.display = 'block';
+            document.getElementById('flowDiagram').innerHTML = '';
+            document.getElementById('results').innerHTML = '';
+            
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/process_review', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                console.log('Mottagen data:', data);
+                
+                // Visa results direkt med Gmail-vänlig formatering och markdown-konvertering
+                document.getElementById('results').innerHTML = `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                        <h3 style="color: #2c3e50; margin-bottom: 15px;">Svar:</h3>
+                        <div style="background-color: #fff; padding: 20px; border-radius: 8px; border-left: 4px solid #3498db;">
+                            ${data.final_response
+                                .replace(/\n/g, '<br>')
+                                // Konvertera markdown-länkar till HTML-länkar
+                                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #3498db; text-decoration: none;" target="_blank">$1</a>')
+                                // Konvertera markdown bold (**text**) till HTML bold
+                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                // Konvertera markdown punktlistor
+                                .replace(/^\d+\.\s/gm, '')
+                            }
+                        </div>
+                    </div>
+                `;
+
+                // Uppdatera arbetsflödet i bakgrunden
+                if (data.workflow_log) {
+                    const flowDiagram = document.getElementById('flowDiagram');
+                    flowDiagram.innerHTML = '';
+                    data.workflow_log.forEach((log, index) => {
+                        const stepElement = createAgentStep(log);
+                        flowDiagram.appendChild(stepElement);
+                        setTimeout(() => {
+                            stepElement.classList.add('active');
+                        }, index * 300);
+                    });
+                }
+                
+                document.querySelector('.loading').style.display = 'none';
+                
+                // Identifiera och aktivera rätt agent
+                if (data.workflow_log && data.workflow_log.length > 0) {
+                    const triageLog = data.workflow_log.find(log => 
+                        log.agent === 'Triage Agent' && 
+                        log.result && 
+                        log.result.includes('kategori:')
+                    );
+                    
+                    if (triageLog) {
+                        const categoryMatch = triageLog.result.match(/(RETURN_REQUEST|SHIPPING_ISSUE|PRODUCT_REVIEW)/);
+                        if (categoryMatch) {
+                            updateActiveAgent(categoryMatch[1]);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.querySelector('.loading').style.display = 'none';
+                document.getElementById('results').innerHTML = `
+                    <p style="color: #e74c3c; padding: 15px; background: #fdf1f0; border-radius: 8px; border-left: 4px solid #e74c3c;">
+                        Ett fel uppstod: ${error.message}
+                    </p>
+                `;
+            }
+        };
+
+        // Uppdatera process-steps när formuläret skickas
+        document.getElementById('reviewForm').addEventListener('submit', function() {
+            document.querySelectorAll('.process-step').forEach((step, index) => {
+                setTimeout(() => {
+                    step.classList.add('active');
+                }, index * 1000);
+            });
+        });
+
+        // Ta bort hover-effekterna på TriageAgent
+        document.querySelector('.triage-agent').style.cursor = 'default';
+
+        // Lägg till funktion för att toggla arbetsflödet
+        function toggleWorkflow() {
+            const container = document.querySelector('.workflow-container');
+            const toggle = document.querySelector('.workflow-toggle');
+            const isHidden = container.style.display === 'none';
+            
+            container.style.display = isHidden ? 'block' : 'none';
+            toggle.innerHTML = `
+                <span class="toggle-icon" style="transform: rotate(${isHidden ? '180deg' : '0deg'})">▼</span>
+                ${isHidden ? 'Dölj arbetsflöde' : 'Visa arbetsflöde'}
+            `;
+            toggle.classList.toggle('active');
+        }
+    </script>
+</body>
+</html>
