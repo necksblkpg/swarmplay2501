@@ -1,0 +1,70 @@
+import requests
+from bs4 import BeautifulSoup
+import json
+
+def fetch_page_content(url):
+    """Hämtar innehåll från en webbsida."""
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.text
+    except Exception as e:
+        print(f"Fel vid hämtning av {url}: {str(e)}")
+        return None
+
+def get_dynamic_info(category):
+    """
+    Hämtar relevant information baserat på kategori från olika webbsidor.
+    Just nu används:
+      - https://www.scottsberry.com/sv/delivery (för SHIPPING_ISSUE)
+      - https://www.scottsberry.com/sv/returns (för RETURN_REQUEST)
+    Produktrecensioner (PRODUCT_REVIEW) använder ingen webbsida.
+    """
+
+    if category == "SHIPPING_ISSUE":
+        url = "https://www.scottsberry.com/sv/delivery"
+    elif category == "RETURN_REQUEST":
+        url = "https://www.scottsberry.com/sv/returns"
+    else:
+        # Ingen dynamisk info för andra kategorier
+        return json.dumps({}, ensure_ascii=False, indent=2)
+
+    content = fetch_page_content(url)
+    if not content:
+        return json.dumps({"info": "Kunde inte hämta data från webbsidan."}, ensure_ascii=False, indent=2)
+
+    soup = BeautifulSoup(content, 'html.parser')
+    data = {"source_url": url}
+
+    # Gemensam logik: Leta upp <h1> och samla all text ned till <footer> eller sidans slut
+    heading = soup.find('h1')
+    if not heading:
+        # Om ingen <h1> hittas, returnera allt eller skicka info om att ingen h1 hittades
+        data["page_content"] = "Ingen <h1> hittades på sidan."
+        return json.dumps(data, ensure_ascii=False, indent=2)
+
+    # Samla rubrikens text om du vill
+    text_parts = []
+    heading_text = heading.get_text(strip=True)
+    if heading_text:
+        text_parts.append(heading_text)
+
+    # Iterera igenom alla syskon till <h1> i DOM-trädet
+    for sibling in heading.next_siblings:
+        if sibling.name == 'footer':
+            break  # sluta om vi når footern
+        if hasattr(sibling, 'get_text'):
+            txt = sibling.get_text(strip=True)
+            if txt:
+                text_parts.append(txt)
+
+    # Slå ihop allt i en sträng
+    full_text = "\n\n".join(text_parts)
+
+    # Lägg in i data-strukturen
+    if category == "SHIPPING_ISSUE":
+        data["shipping_info"] = full_text
+    elif category == "RETURN_REQUEST":
+        data["return_info"] = full_text
+
+    return json.dumps(data, ensure_ascii=False, indent=2)
