@@ -1,0 +1,190 @@
+from flask import Flask, render_template, request, jsonify
+from swarm import Swarm, Agent
+from web_scraper import get_dynamic_info
+import json
+
+app = Flask(__name__)
+app.secret_key = "dev-key-123"
+
+client = Swarm()
+
+# ---- Triage Agent ----
+triage_agent = Agent(
+    name="TriageAgent",
+    instructions="""Du är en avancerad triage-agent för en e-handel som säljer herraccessoarer.
+    Analysera kundens meddelande och kategorisera det i EXAKT EN av följande kategorier:
+    1. PRODUCT_REVIEW - Produktrecension (positiv eller negativ)
+    2. SHIPPING_ISSUE - Problem med leverans
+    3. RETURN_REQUEST - Önskan om retur/byte
+
+    Svara ENDAST med kategorin i versaler, t.ex. 'PRODUCT_REVIEW'.""",
+    model="gpt-4o"
+)
+
+# ---- Specialiserade Agenter ----
+product_review_agent = Agent(
+    name="ProductReviewAgent",
+    instructions="""Du är specialist på att hantera produktrecensioner.
+    1. Avgör först om recensionen är positiv eller negativ
+    2. Identifiera specifika produktegenskaper som nämns
+    3. Ge ett personligt och relevant svar
+    4. Om negativt - erbjud konkret lösning
+    5. Om positivt - rekommendera kompletterande produkter
+    Avsluta med: "Med vänliga hälsningar, Sandra, Scottsberry".""",
+    model="gpt-4o"
+)
+
+shipping_agent = Agent(
+    name="ShippingSpecialistAgent",
+    instructions="""Du är expert på leveransfrågor.
+    Du kommer att få information från https://www.scottsberry.com/sv/delivery om relevant.
+
+    1. Identifiera specifikt leveransproblem
+    2. Ge aktuell leveransstatus om möjligt
+    3. Förklara nästa steg tydligt
+    4. Erbjud konkret lösning/kompensation vid försening
+    5. Ge uppskattad ny leveranstid
+    6. Om du använder info från webbsidan, ange gärna länken i svaret
+
+    Avsluta med: "Med vänliga hälsningar, Emma, Scottsberry".""",
+    model="gpt-4o"
+)
+
+returns_agent = Agent(
+    name="ReturnsAgent",
+    instructions="""Du är en extremt hjälpsam specialist på returer och byten hos Scottsberry.
+    Du kommer att få information från https://www.scottsberry.com/sv/returns om relevant.
+
+    1. Detta mail har kommit in till vår mail och vi ska nu svara på det.
+    2. Föreslå svar, skriv att vi bifogar returfraktsedel i detta svarsmail om vi fått all info som behövs.
+    3. Ge kunden all relevant info om ärendet på ett pedagosikt sätt, allt de kan tänkas vilja veta, få kunden att känna att vi läst deras mail. Ge även länk till webbsidan för mer info.
+
+    Avsluta med: "Med vänliga hälsningar, Lisa, Scottsberry".""",
+    model="gpt-4o"
+)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/process_review', methods=['POST'])
+def process_review():
+    try:
+        customer_message = request.form.get('review', '')
+        workflow_log = []
+
+        # Steg 1: Triage-agenten kategoriserar ärendet
+        triage_response = client.run(
+            messages=[{"role": "user", "content": customer_message}],
+            agent=triage_agent
+        )
+        category = triage_response.messages[-1]['content'].strip()
+
+        workflow_log.append({
+            "time": "Steg 1",
+            "agent": "Triage Agent",
+            "status": "Completed",
+            "result": f"Ärendekategori: {category}",
+            "input": customer_message,
+            "output": triage_response.messages[-1]['content']
+        })
+
+        # Steg 2: Välj specialist och hämta dynamisk information
+        if category == "PRODUCT_REVIEW":
+            selected_agent = product_review_agent
+            agent_type = "Product Review Specialist"
+        elif category == "SHIPPING_ISSUE":
+            selected_agent = shipping_agent
+            agent_type = "Shipping Specialist"
+        elif category == "RETURN_REQUEST":
+            selected_agent = returns_agent
+            agent_type = "Returns Specialist"
+        else:
+            # Om inget passar, returnera fel eller tomt svar
+            return jsonify({
+                "final_response": "Okänd kategori.",
+                "workflow_log": workflow_log
+            })
+
+        workflow_log.append({
+            "time": "Steg 2",
+            "agent": agent_type,
+            "status": "Selected",
+            "result": "Specialist vald baserat på ärendekategori",
+            "input": category,
+            "output": f"Vald specialist: {agent_type}"
+        })
+
+        # Hämta dynamisk information från webbsidor
+        dynamic_info = get_dynamic_info(category)
+
+        workflow_log.append({
+            "time": "Steg 2.5",
+            "agent": "Info Collector",
+            "status": "Completed",
+            "result": "Aktuell information hämtad från webbsidor",
+            "input": category,
+            "output": dynamic_info,
+            "source": "https://www.scottsberry.com/sv/" + ("delivery" if category == "SHIPPING_ISSUE" else "returns" if category == "RETURN_REQUEST" else "products")
+        })
+
+        # Steg 3: Specialist hanterar ärendet med dynamisk information
+        specialist_input = f"""
+Kundens meddelande: {customer_message}
+
+Aktuell information (vid behov):
+{dynamic_info}
+
+Ge ett hjälpsamt och informativt svar baserat på kundens fråga.
+"""
+        response = client.run(
+            messages=[{"role": "user", "content": specialist_input}],
+            agent=selected_agent
+        )
+        final_response = response.messages[-1]['content']
+
+        workflow_log.append({
+            "time": "Steg 3",
+            "agent": agent_type,
+            "status": "Completed",
+            "result": "Specialistsvar genererat med aktuell information",
+            "input": specialist_input,
+            "output": final_response
+        })
+
+        return jsonify({
+            "final_response": final_response,
+            "workflow_log": workflow_log
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/get_available_agents')
+def get_available_agents():
+    # Returnera information om alla tillgängliga specialistagenter
+    return jsonify({
+        'agents': [
+            {
+                'id': 'product-review-agent',
+                'name': 'ProductReviewAgent',
+                'description': 'Specialist på att analysera produktrecensioner',
+                'type': 'PRODUCT_REVIEW'
+            },
+            {
+                'id': 'shipping-specialist-agent',
+                'name': 'ShippingSpecialistAgent',
+                'description': 'Expert på leveransfrågor och leveransstatus',
+                'type': 'SHIPPING_ISSUE'
+            },
+            {
+                'id': 'returns-agent',
+                'name': 'ReturnsAgent',
+                'description': 'Specialist på returer och byten',
+                'type': 'RETURN_REQUEST'
+            }
+        ]
+    })
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080, debug=True)
